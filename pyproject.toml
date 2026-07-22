@@ -1,7 +1,11 @@
 [project]
 name = "mdf-soft"
 version = "0.1.0"
-description = "Add your description here"
+description = "Furniture Soft - Quick Quote AI & Manufacturing Suite"
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0.0",
+    "pytest>=8.0.0",
+]
+

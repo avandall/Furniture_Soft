@@ -117,13 +117,19 @@ CREATE TABLE workshop_pricing (
 }
 ```
 
-### Logic Tính Tiền của Rule Engine (Python thuần)
+### Logic Tính Giá Bán & Giá Vốn của Rule Engine (Python thuần)
 *   **Fuzzy Name Matching**: So khớp không phân biệt chữ hoa chữ thường và dựa trên bộ `keywords` để tự động map tên do AI bóc tách (e.g. *"Tủ quần áo cánh kính"*) vào nhóm danh mục của xưởng (e.g. *"Tủ áo"*).
 *   **Phép tính theo đơn vị đo**:
     *   **Mét dài (`md`)**: $\text{Dài (m)} \times \text{Đơn giá} \times \text{Số lượng}$ (Dành cho tủ bếp, kệ trang trí dài).
     *   **Mét vuông (`m2`)**: $\text{Dài (m)} \times \text{Rộng (m)} \times \text{Đơn giá} \times \text{Số lượng}$ (Dành cho tủ quần áo, vách ốp đầu giường).
     *   **Cái/Bộ**: $\text{Đơn giá} \times \text{Số lượng}$ (Dành cho giường ngủ, bàn trang điểm, tab đầu giường).
+*   **Bóc tách Giá Vốn Gốc & Biên Lợi Nhuận Xưởng (Owner Cost Breakdown)**:
+    *   **Giá ván nhập gốc**: Tính toán số lượng tấm ván tiêu chuẩn ($1220 \times 2440\text{mm}$) ước tính $\times$ Đơn giá nhập 1 tấm ván của xưởng (kèm $15\%$ hao hụt).
+    *   **Tiền công thợ**: Tùy chỉnh theo định mức $m^2/md$ hoặc xưởng tự gõ tay trực tiếp.
+    *   **% Lợi nhuận xưởng (% Profit Margin)**: Xưởng có thể thiết lập % mặc định (e.g. $35\%$) hoặc điều chỉnh linh hoạt % lợi nhuận trực tiếp trên màn hình lúc ra báo giá.
+    *   **Quy tắc bảo mật UI (Owner Privacy Mode)**: Bảng tính Giá Vốn và Lợi Nhuận Gộp chỉ hiển thị trong giao diện mở rộng dành riêng cho chủ xưởng (Owner Drawer/Tab). Giao diện gửi cho khách hàng CHỈ hiển thị Giá Bán Báo Giá công khai, tránh bị lộ giá vốn khi chủ xưởng ngồi cùng khách.
 *   **Làm tròn tiền mặt**: Toàn bộ giá tiền làm tròn về số nguyên gần nhất (không sử dụng phần thập phân vì đơn vị tiền là VND).
+
 
 ---
 

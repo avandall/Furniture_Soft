@@ -1,98 +1,95 @@
-# Kế Hoạch Phát Triển Dự Án Drawing Copilot - Vision-RAG Platform (P2)
+# Kế Hoạch Phát Triển Dự Án Mobile Showroom & Instant Parametric Quotation Platform (P2)
 
-Tài liệu này chi tiết hóa kiến trúc, nguyên lý hoạt động, kế hoạch xây dựng và lộ trình triển khai cụm dịch vụ **Drawing Copilot (P2)** - trợ lý ảo đa phương thức hỗ trợ kỹ sư và thợ lắp ráp tại công trình hỏi đáp trực tiếp bằng giọng nói trên bản vẽ kỹ thuật phức tạp.
+Tài liệu này chi tiết hóa kiến trúc, nguyên lý hoạt động, kế hoạch xây dựng và lộ trình triển khai cụm dịch vụ **Mobile Showroom & Instant Parametric Quotation Platform (P2)** - nền tảng thư viện mẫu mộc di động và báo giá tham số hóa tức thì giúp chủ xưởng gỗ tư vấn, nhảy báo giá chính xác và chốt hợp đồng cọc ngay tại công trình/buổi gặp đầu tiên với khách hàng.
 
 ---
 
-## 1. Tổng Quan & Luồng Nghiệp Vụ Tối Ưu
+## 1. Phân Tích Pain Point Thực Tế Khi Nguồn Khách Hàng Bị Rò Rỉ
 
-Sản phẩm P2 giải quyết bài toán đọc sai thông số bản vẽ giấy khổ lớn tại công trường của thợ lắp ráp, gây lỗi lắp đặt dẫn tới phá dỡ đền bù tài chính. Luồng nghiệp vụ của Drawing Copilot được vận hành như sau:
+Qua khảo sát thực tế quy trình chốt hợp đồng của các chủ xưởng mộc tại Việt Nam, bài toán gây tổn thất doanh thu lớn nhất nằm ở **KHÂU TƯ VẤN & BÁO GIÁ LẦN ĐẦU GẶP KHÁCH**:
+
+### Kịch bản thực tế thường gặp:
+1. Chủ xưởng mang thước dây đến căn hộ chung cư thô / công trình để gặp chủ nhà.
+2. Chủ nhà giơ điện thoại cho xem ảnh tủ áo/tủ bếp trên Pinterest/Facebook và hỏi: *"Căn này của anh tủ áo dài 2.4m kịch trần, làm bằng gỗ MDF chống ẩm An Cường phủ Melamine thì khoảng bao nhiêu tiền?"*.
+3. Chủ xưởng **không có công cụ tính giá nhanh tại chỗ**, đành hẹn: *"Về em bảo KTS vẽ phối cảnh 3D rồi em làm file Excel báo giá gửi anh sau 2 ngày nhé"*.
+4. **Hậu quả**: Trong 2 ngày chờ đợi đó:
+   * Khách hàng nguội lạnh cảm xúc.
+   * Đối thủ (xưởng khác) tiếp cận, báo giá nhanh hơn và **chốt cọc hợp đồng mất**.
+   * Xưởng tốn công KTS vẽ 3D miễn phí nhưng khách không làm $\rightarrow$ Lãng phí chi phí cơ hội và nhân công.
+
+---
+
+## 2. Giải Pháp P2: Mobile Showroom & Báo Giá Tham Số Hóa Tức Thì
 
 ```mermaid
 graph TD
-    A[Bộ hồ sơ kỹ thuật PDF lớn tải lên] --> B(PyMuPDF - Phân rã ảnh chất lượng cao)
-    B --> C(OpenCV - Nhị phân hóa & làm nét đường nét)
-    C --> D(Grid Slicer - Cắt nhỏ bản vẽ thành các lưới tọa độ)
-    D --> E(OCR - Trích xuất text/số đo làm metadata)
-    E --> F(Embedding Model + Nạp Vector DB Qdrant/pgvector)
+    A[Khách cho xem ảnh Pinterest/Facebook hoặc chọn mẫu Catalog xưởng] --> B(Module 1: AI Photo-to-Template Matcher)
+    B -->|Gemini Vision phân tích kiểu dáng| C(Module 2: Parametric Catalog Configurator)
+    C -->|Kéo slider kích thước Dài/Cao/Sâu & Chọn loại ván gỗ| D(Module 3: Instant Rule Engine Bridge)
     
-    G[Thợ tại công trình đặt câu hỏi bằng giọng nói] --> H(Whisper API - Chuyển sang Text Query)
-    H --> I(Vector Search trên Qdrant)
-    I -->|Lọc lấy 3-5 block ảnh bản vẽ phù hợp| J(Multimodal LLM Reasoning)
-    J --> K[Trả lời bằng giọng nói/văn bản + Vẽ khung đỏ Bounding Box lên Canvas điện thoại]
+    D -->|Gọi P0 QuotationRuleEngine| E[Tính ra Đơn giá & Tổng tiền chính xác 100% trong 2 giây]
+    E --> F[Xuất PDF Phiếu Báo Giá / Hợp Đồng Cọc kèm Mã QR Chuyển Khoản]
+    F --> G[Chủ xưởng chốt cọc tại chỗ ngay lần gặp đầu tiên!]
 ```
 
 ---
 
-## 2. Kiến Trúc & Thiết Kế Hệ Thống (Microservices)
+## 3. Các Phân Hệ Tính Năng Cốt Lõi
 
-Do đặc thù xử lý đồ họa nặng, bẻ tách tập tin PDF A3/A0 và tính toán Vector cực kỳ tốn RAM/CPU, P2 được **cô lập hoàn toàn thành cụm Microservice độc lập** để tránh làm treo hệ thống Web bán hàng/báo giá của P0/P1.
+### Module 1: AI Photo-to-Template Matcher (Phân Tích Ảnh Pinterest / Facebook)
+Khi khách hàng đưa ảnh bất kỳ trên mạng:
+* Chủ xưởng chụp lại hoặc tải ảnh lên App.
+* **Vision LLM (Gemini 1.5 Flash)** tự động phân loại kiểu dáng: `[Tủ áo kịch trần cánh mở, Tủ bếp chữ L, Giường bọc nệm, Kệ tivi treo]`.
+* Tự động trích xuất màu sắc ván mộc mẫu và map trực tiếp với mã mẫu mộc tương ứng trong Catalog của xưởng.
 
-### Phân rã Services
-1.  **drawing_gateway (Node.js/NestJS)**: API Gateway tiếp nhận file bản vẽ, xử lý xác thực người dùng, lưu trữ thông tin dự án và quản lý điều phối tải.
-2.  **drawing_rag_engine (Python FastAPI)**: Microservice tính toán nặng chuyên dụng. Xử lý OpenCV, phân tích bản vẽ kỹ thuật, kết nối Vector DB và chạy luồng truy vấn RAG.
+### Module 2: Parametric Catalog Configurator (Thư Viện Mẫu Mộc Tham Số Hóa)
+Bộ Catalog mộc chuẩn hóa của xưởng hiển thị mượt mà trên Tablet/Điện thoại di động:
+* **Slider Kích thước Tham số (Parametric Sliders)**:
+  * Chiều dài: $1200\text{mm} \rightarrow 4000\text{mm}$ (Bước nhảy $50\text{mm}$).
+  * Chiều cao: $2000\text{mm} \rightarrow 2800\text{mm}$ (Mặc định tự gợi ý kịch trần).
+  * Chiều sâu: $350\text{mm} \rightarrow 650\text{mm}$ (Phù hợp chuẩn mộc từng loại tủ).
+* **Bộ chọn Vật liệu & Thương hiệu Ván (Material Selectors)**:
+  * Cốt gỗ: MDF chống ẩm / HDF / Plywood / Gỗ ghép thanh.
+  * Hãng ván: An Cường / Minh Long / ThaiTex / Ba Thanh.
+  * Bề mặt phủ: Melamine / Acrylic bóng gương / Laminate / Veneer xoan đào, óc chó.
+  * Thương hiệu phụ kiện: Hafele / Blum / DTC / Eurogold.
+
+### Module 3: Instant Quotation & Contract Deposit Generator (Báo Giá & Hợp Đồng Cọc Tại Chỗ)
+* Tích hợp trực tiếp với **`QuotationRuleEngine` của P0**:
+  * Tự động nhân diện tích $m^2$ hoặc $md$ với đơn giá xưởng trong `WorkshopPricingConfig`.
+  * Hiển thị bảng tổng hợp giá tiền chi tiết chỉ sau **2 giây**.
+* **Xuất Hợp đồng đặt cọc nhanh (PDF)**:
+  * Điền nhanh thông tin khách hàng, địa chỉ công trình và số tiền cọc (e.g. $10\% - 20\%$).
+  * Tự động sinh mã **VietQR** chuyển khoản ngân hàng trực tiếp vào tài khoản xưởng để khách quét QR chốt cọc ngay lập tức.
+
+---
+
+## 4. Kiến Trúc Kỹ Thuật & Tech Stack
+
+P2 được thiết kế ưu tiên trải nghiệm di động (**Mobile-First PWA**), chạy cực nhanh và có khả năng hoạt động ngay cả khi sóng mạng tại công trình yếu:
 
 ### Tech Stack
-*   **Frontend**: React.js Mobile-first / Next.js PWA (Hỗ trợ ghi âm microphone ghi đè ngoại tuyến, dựng thẻ HTML Canvas để vẽ bounding box tương tác).
-*   **Vector Database**: Qdrant hoặc pgvector (tối ưu hóa lưu trữ tọa độ ma trận không gian).
-*   **Heavy Processing Libraries**: PyMuPDF (đọc file PDF kỹ thuật), OpenCV (xử lý hình ảnh nhị phân), OpenAI Whisper API (chuyển đổi Speech-to-Text độ trễ thấp).
+* **Frontend**: React.js / Next.js PWA (Hỗ trợ offline caching danh mục mộc, hiển thị mượt mà trên iPad, Samsung Tab, iPhone).
+* **Backend API Gateway**: Python FastAPI (`mobile_showroom_server`).
+* **AI Layer**: Gemini 1.5 Flash API (Tốc độ phản hồi phân tích ảnh $< 2$ giây, chi phí cực rẻ).
+* **Payment & Contract**: PDFKit / ReportLab sinh file PDF hợp đồng cọc + VietQR API sinh mã QR thanh toán ngân hàng.
 
 ---
 
-## 3. Chi Tiết Kỹ Thuật Pipeline Nạp Bản Vẽ (Ingestion Pipeline)
+## 5. Lộ Trình Triển Khai Phát Triển (Lũy Tiến 4 Tuần)
 
-Để triệt tiêu lỗi **ảo giác số đo** (AI đọc nhầm số kích thước nhỏ nằm sát nhau, ví dụ $1100\text{mm}$ đọc thành $1000\text{mm}$), hệ thống áp dụng pipeline xử lý ảnh nâng cao:
+### Tuần 1: Cấu Trúc Catalog Tham Số Hóa & Giao Diện Tablet
+* Thiết kế Pydantic Schema cho `ParametricTemplate` (Tủ áo, Tủ bếp, Giường, Kệ).
+* Xây dựng giao diện Web PWA di động với các thanh slider điều chỉnh kích thước mượt mà.
 
-### Bước 1: Tiền xử lý ảnh kỹ thuật (OpenCV Image Processing)
-*   Chuyển đổi trang bản vẽ PDF sang ảnh chất lượng cao 300 DPI.
-*   Áp dụng thuật toán lọc nhị phân **Adaptive Thresholding** để loại bỏ các điểm mờ, tăng độ nét cho các nét vẽ CAD mảnh và làm rõ nét chữ số kích thước.
+### Tuần 2: Tích Hợp AI Matcher (Photo-to-Template)
+* Viết Prompt cho Gemini Vision phân loại kiểu dáng mộc từ ảnh khách hàng (Pinterest/Facebook).
+* Tự động map từ kết quả AI sang Template Catalog phù hợp của xưởng.
 
-### Bước 2: Cắt lát Không gian (Grid Slicing) & Trích xuất Metadata
-*   Cắt bản vẽ thành các phân mảnh nhỏ (ví dụ lưới $4 \times 4$ hoặc $8 \times 8$) tương ứng với các tọa độ góc $(x_1, y_1, x_2, y_2)$.
-*   Chạy công cụ OCR (ví dụ Tesseract hoặc Google Vision OCR) trên từng phân mảnh để lấy từ khóa văn bản và các chữ số kích thước nằm trong mảnh đó.
-*   **Định dạng Vector DB Entry**:
-    ```json
-    {
-      "vector": [0.12, -0.45, 0.89, "..."],
-      "metadata": {
-        "project_id": "proj_99",
-        "page_number": 5,
-        "bounding_box": [100, 150, 400, 450],
-        "extracted_text": "tủ bếp dưới hộc kéo máy rửa bát bosch kích thước 600",
-        "image_slice_url": "s3://.../slice_5_1.png"
-      }
-    }
-    ```
+### Tuần 3: Kết Nối Lõi Tính Giá P0 & Sinh Hợp Đồng Cọc PDF
+* Tích hợp `QuotationRuleEngine` từ P0 để tính toán giá tiền chính xác 100% dựa trên bảng giá xưởng.
+* Lập trình module xuất file PDF Báo Giá / Hợp Đồng Cọc thương hiệu xưởng + Tích hợp VietQR.
 
----
-
-## 4. Chi Tiết Kỹ Thuật Luồng Truy Vấn (Query & RAG Pipeline)
-
-1.  **Speech-to-Text**: Thợ nhấn nút ghi âm trên điện thoại và hỏi: *"Kích thước của khoang để máy rửa bát là bao nhiêu?"*. Whisper API trả về văn bản truy vấn.
-2.  **Vector Search**: Dùng câu hỏi để thực hiện truy vấn tương đồng ngữ nghĩa trên Qdrant DB. Lọc ra 3 mảnh bản vẽ chứa hình ảnh của khu vực tủ bếp và có từ khóa "máy rửa bát" trong metadata.
-3.  **Vision-RAG Reasoning**: Gửi đồng thời câu hỏi dạng text cùng 3 mảnh ảnh nhỏ này vào Multimodal LLM (e.g. GPT-4o / Gemini 1.5 Pro). Mô hình sẽ tập trung đọc các con số ghi trên bản vẽ phân mảnh để trả lời chính xác: *"Kích thước lọt lòng của khoang máy rửa bát là 600mm."*
-4.  **Spatial Highlighting**: LLM trả về tọa độ Bounding Box của con số đó. Client React sử dụng thẻ Canvas vẽ một ô chữ nhật đỏ khoanh đúng vị trí con số trên bản vẽ tổng thể hiển thị trên màn hình điện thoại của thợ, giúp họ xác minh trực quan ngay lập tức.
-
----
-
-## 5. Lộ Trình Triển Khai Phát Triển (Lũy Tiến 8 - 12 Tuần)
-
-### Giai đoạn 1 (Tuần 1 - 3): Heavy Graphics & Processing Service
-*   Thiết lập dự án `drawing_rag_engine` bằng Python FastAPI.
-*   Tích hợp PyMuPDF giải nén bản vẽ và OpenCV tiền xử lý lọc nhị phân làm nét chữ.
-*   Viết module Grid Slicer cắt lát bản vẽ theo tọa độ lưới.
-
-### Giai đoạn 2 (Tuần 4 - 6): Vector DB & OCR Integration
-*   Cài đặt Qdrant Vector Database.
-*   Lập trình pipeline OCR trích xuất chữ và số đo trên từng phân mảnh mộc.
-*   Thực hiện vector hóa văn bản và đồng bộ toàn bộ siêu dữ liệu (metadata) tọa độ vào DB.
-
-### Giai đoạn 3 (Tuần 7 - 9): Giọng nói & Giao diện hiện trường PWA
-*   Tạo PWA di động (React.js) hỗ trợ ghi âm trực tiếp tại công trường.
-*   Tích hợp Whisper API để nhận diện giọng nói tiếng Việt chuyên ngành mộc (e.g. đọc đúng các từ lọt lòng, thông thủy, phào chỉ, bản lề...).
-*   Xây dựng Canvas Renderer hiển thị bản vẽ kỹ thuật và hỗ trợ vẽ Bounding Box màu đỏ.
-
-### Giai đoạn 4 (Tuần 10 - 12): Tích hợp toàn diện & Tối ưu hóa tải
-*   Kết nối API Gateway (NestJS) điều phối tải.
-*   Dockerize toàn bộ dịch vụ và triển khai trên cụm máy chủ compute riêng biệt.
-*   Tối ưu hóa tốc độ phản hồi từ lúc thợ hỏi bằng giọng nói đến khi hiển thị kết quả vẽ khung đỏ dưới 3 giây.
+### Tuần 4: Thử Nghiệm Thực Tế & Tối Ưu Trải Nghiệm Khách Hàng
+* Đóng gói Docker, triển khai PWA app.
+* Thử nghiệm thực tế cùng chủ xưởng khi đi gặp khách hàng tại công trình.
