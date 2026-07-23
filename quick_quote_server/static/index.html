@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick-Quote AI - Hệ Thống Bóc Tách Bản Vẽ & Báo Giá Nhanh Xưởng Mộc</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-icon">🪵</div>
+                <div>
+                    <h1 class="brand-title">Quick-Quote AI</h1>
+                    <p class="brand-subtitle">AI-assisted, Human-approved • Hệ Thống Báo Giá Mộc Nội Thất</p>
+                </div>
+            </div>
+            <div class="workshop-config">
+                <label for="workshopIdInput">Mã Xưởng:</label>
+                <input type="text" id="workshopIdInput" value="ws_demo" class="input-text-sm" placeholder="Nhập mã xưởng...">
+                <button id="btnLoadPricing" class="btn btn-secondary">⚙️ Quản lý bảng giá</button>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT -->
+        <main class="main-content">
+            <!-- LEFT PANEL: UPLOAD & PRESET SELECTION -->
+            <section class="panel left-panel">
+                <div class="card upload-card">
+                    <h2 class="card-title">1. Upload Bản Vẽ / Phối Cảnh 3D</h2>
+                    <div class="drop-zone" id="dropZone">
+                        <div class="drop-zone-content">
+                            <div class="upload-icon">📸</div>
+                            <p class="drop-text">Kéo thả ảnh phối cảnh 3D/PDF bản vẽ vào đây</p>
+                            <span class="drop-hint">Hỗ trợ PNG, JPG, WEBP, PDF (Tối đa 10MB)</span>
+                            <button class="btn btn-primary" id="btnSelectFile">Chọn file từ máy tính</button>
+                            <input type="file" id="fileInput" accept="image/*,.pdf" hidden>
+                        </div>
+                    </div>
+                    <div id="imagePreviewContainer" class="preview-container hidden">
+                        <img id="imagePreview" src="" alt="Preview bản vẽ">
+                        <div class="preview-info">
+                            <span id="fileName">drawing.png</span>
+                            <button id="btnRemoveFile" class="btn-icon">❌</button>
+                        </div>
+                    </div>
+                    <button id="btnStartQuotation" class="btn btn-accent btn-block margin-top" disabled>
+                        ✨ AI Bóc Tách Khối Lượng BOM
+                    </button>
+                </div>
+
+                <!-- PRESET TEMPLATES BANNER CARD -->
+                <div class="card preset-card">
+                    <div class="preset-header">
+                        <h3>📋 Cài Đặt Mẫu Bảng Giá Preset</h3>
+                        <span class="badge badge-info">Onboarding</span>
+                    </div>
+                    <p class="preset-desc">Chưa có bảng giá xưởng? Chọn 1 trong 3 mẫu giá dưới đây để tự động nạp đơn giá:</p>
+                    <div class="preset-buttons">
+                        <button class="btn btn-preset" data-preset="binh_dan">
+                            <span class="preset-icon">⚡</span>
+                            <div>
+                                <strong>Bình Dân</strong>
+                                <small>Ván chợ giá rẻ</small>
+                            </div>
+                        </button>
+                        <button class="btn btn-preset" data-preset="pho_thong">
+                            <span class="preset-icon">🌟</span>
+                            <div>
+                                <strong>Phổ Thông</strong>
+                                <small>Melamine Thái Lan/Minh Long</small>
+                            </div>
+                        </button>
+                        <button class="btn btn-preset" data-preset="cao_cap">
+                            <span class="preset-icon">👑</span>
+                            <div>
+                                <strong>Cao Cấp</strong>
+                                <small>MDF/HDF An Cường</small>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT PANEL: EXCEL-LIKE WORKSPACE TABLE & SUMMARY -->
+            <section class="panel right-panel">
+                <div class="card workspace-card">
+                    <div class="workspace-header">
+                        <div>
+                            <h2>2. Bảng Bóc Tách Khối Lượng & Chi Tiết Giá Bán</h2>
+                            <p class="workspace-subtitle">Chỉnh sửa trực tiếp kích thước, vật liệu hoặc đơn giá trên bảng tính bên dưới</p>
+                        </div>
+                        <div class="actions-group">
+                            <button id="btnAddItem" class="btn btn-secondary">+ Thêm Hạng Mục</button>
+                            <button id="btnToggleOwnerCost" class="btn btn-outline">🔒 Giá Vốn & Lợi Nhuận</button>
+                        </div>
+                    </div>
+
+                    <!-- WARNING BANNER IF PRICES MISSING -->
+                    <div id="missingPriceBanner" class="banner banner-warning hidden">
+                        ⚠️ <strong>Cảnh báo:</strong> Một số hạng mục chưa được nhập đơn giá (0 VNĐ). Vui lòng chọn 1 Preset hoặc gõ đơn giá trực tiếp trên bảng.
+                    </div>
+
+                    <!-- ASYNC POLLING PROGRESS -->
+                    <div id="pollingStatus" class="polling-overlay hidden">
+                        <div class="spinner"></div>
+                        <p id="pollingText">AI đang phân tích và bóc tách thực thể mộc từ bản vẽ...</p>
+                    </div>
+
+                    <!-- TABLE -->
+                    <div class="table-responsive">
+                        <table class="excel-table" id="quotationTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">STT</th>
+                                    <th style="min-width: 180px;">Tên Hạng Mục Mộc</th>
+                                    <th style="width: 90px;">Dài (mm)</th>
+                                    <th style="width: 90px;">Rộng (mm)</th>
+                                    <th style="width: 80px;">ĐVT</th>
+                                    <th style="min-width: 140px;">Cốt Gỗ / Bề Mặt</th>
+                                    <th style="width: 70px;">SL</th>
+                                    <th style="width: 130px;">Danh Mục</th>
+                                    <th style="min-width: 130px;">Đơn Giá (đ)</th>
+                                    <th style="min-width: 140px;">Thành Tiền (đ)</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <tr class="empty-row">
+                                    <td colspan="11">Chưa có dữ liệu. Vui lòng upload bản vẽ 3D để AI bóc tách hoặc thêm hạng mục mới.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- SUMMARY & EXPORT FOOTER -->
+                    <div class="workspace-footer">
+                        <div class="export-actions">
+                            <button id="btnExportPDF" class="btn btn-success" disabled>📄 In / Xuất PDF Báo Giá</button>
+                            <button id="btnExportZalo" class="btn btn-primary" disabled>💬 Gửi Qua Zalo</button>
+                        </div>
+                        <div class="total-display">
+                            <span>TỔNG TIỀN BÁO GIÁ KHÁCH:</span>
+                            <strong id="grandTotalDisplay">0 VNĐ</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OWNER COST BREAKDOWN DRAWER / PANEL (PRIVACY MODE) -->
+                <div id="ownerCostPanel" class="card owner-cost-card hidden">
+                    <div class="owner-cost-header">
+                        <h3>🔒 Bóc Tách Giá Vốn Gốc & Biên Lợi Nhuận (Chỉ Chủ Xưởng Xem)</h3>
+                        <span class="badge badge-warning">Chế độ Bảo Mật Quyền Chủ Xưởng</span>
+                    </div>
+                    <div class="cost-grid">
+                        <div class="cost-box">
+                            <span class="cost-label">Số Tấm Ván Tiêu Chuẩn (1220x2440mm):</span>
+                            <strong id="totalSheetsCount">0 tấm (kèm 15% hao hụt)</strong>
+                        </div>
+                        <div class="cost-box">
+                            <span class="cost-label">Tổng Tiền Mua Ván Gốc:</span>
+                            <strong id="totalBoardMaterialCost">0 VNĐ</strong>
+                        </div>
+                        <div class="cost-box">
+                            <span class="cost-label">Tổng Tiền Công Thợ Bổ & Lắp:</span>
+                            <strong id="totalLaborCost">0 VNĐ</strong>
+                        </div>
+                        <div class="cost-box">
+                            <span class="cost-label">Tiền Phụ Kiện Ước Tính (15%):</span>
+                            <strong id="totalHardwareCost">0 VNĐ</strong>
+                        </div>
+                        <div class="cost-box highlight-base">
+                            <span class="cost-label">TỔNG GIÁ VỐN GỐC (COGS):</span>
+                            <strong id="totalBaseCostDisplay">0 VNĐ</strong>
+                        </div>
+                        <div class="cost-box highlight-profit">
+                            <span class="cost-label">TIỀN LỢI NHUẬN GỘP XƯỞNG:</span>
+                            <strong id="grossProfitDisplay">0 VNĐ</strong>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL FOR ZALO COPY & PDF PREVIEW -->
+    <div id="zaloModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💬 Nội Dung Tóm Tắt Gửi Qua Zalo</h3>
+                <button id="btnCloseZaloModal" class="btn-icon">❌</button>
+            </div>
+            <textarea id="zaloTextarea" rows="12" class="textarea-code" readonly></textarea>
+            <div class="modal-footer">
+                <button id="btnCopyZalo" class="btn btn-accent">📋 Sao Chép Nội Dung</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

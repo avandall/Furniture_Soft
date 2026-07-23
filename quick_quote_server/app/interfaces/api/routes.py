@@ -1,9 +1,10 @@
 import uuid
 from typing import Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
 
-from app.domain.models import WorkshopPricingConfig, QuotationResult
+from app.domain.models import WorkshopPricingConfig, QuotationResult, QuotedItem
 from app.infrastructure.repositories.database import get_db
 from app.infrastructure.repositories.pricing_repository import WorkshopPricingRepository
 from app.infrastructure.repositories.job_repository import QuotationJobRepository
@@ -11,6 +12,8 @@ from app.infrastructure.storage.file_storage import LocalStorageService
 from app.infrastructure.ai_services.vision_service import MockVisionService
 from app.use_cases.manage_pricing import ManagePricingUseCase
 from app.use_cases.process_quotation import ProcessQuotationUseCase
+from app.use_cases.recalculate_quotation import RecalculateQuotationUseCase
+from app.infrastructure.export.export_service import QuotationExportService
 
 router = APIRouter(prefix="/api/v1", tags=["Quick Quote AI"])
 storage_service = LocalStorageService()
@@ -135,11 +138,11 @@ async def upload_quotation_image(
     pricing_repo = WorkshopPricingRepository(db)
     job_repo = QuotationJobRepository(db)
 
-    # Lấy bảng giá xưởng (Nội suy preset pho_thong nếu xưởng chưa tạo)
+    # Lấy bảng giá xưởng (Nếu chưa thiết lập bảng giá -> dùng bảng giá rỗng, không tự động fallback về pho_thong)
     pricing_use_case = ManagePricingUseCase(pricing_repo)
     config = pricing_use_case.get_pricing(workshop_id)
     if not config:
-        config = pricing_use_case.create_preset_pricing(workshop_id, "pho_thong")
+        config = WorkshopPricingConfig(workshop_id=workshop_id)
 
     # 1. Lưu file upload lên storage
     file_bytes = await file.read()
@@ -189,3 +192,65 @@ def get_quotation_job_status(job_id: str, db: Session = Depends(get_db)):
         "created_at": job.created_at,
         "updated_at": job.updated_at,
     }
+
+
+# --- REALTIME RECALCULATE & EXPORT ENDPOINTS ---
+
+class RecalculateRequest(BaseModel):
+    workshop_id: str
+    items: list[QuotedItem]
+    custom_profit_margin: Optional[float] = None
+    custom_labor_cost: Optional[int] = None
+
+
+class ExportRequest(BaseModel):
+    quotation: QuotationResult
+    workshop_name: Optional[str] = "Xưởng Mộc Nội Thất"
+
+
+@router.post("/quotations/recalculate", status_code=status.HTTP_200_OK)
+def recalculate_quotation(payload: RecalculateRequest, db: Session = Depends(get_db)):
+    """
+    API tính toán lại báo giá theo thời gian thực khi người dùng chỉnh sửa
+    kích thước, số lượng hoặc đơn giá mộc trên bảng tính Excel-like.
+    """
+    pricing_repo = WorkshopPricingRepository(db)
+    pricing_use_case = ManagePricingUseCase(pricing_repo)
+    config = pricing_use_case.get_pricing(payload.workshop_id)
+    if not config:
+        config = WorkshopPricingConfig(workshop_id=payload.workshop_id)
+
+    use_case = RecalculateQuotationUseCase()
+    result = use_case.execute(
+        items=payload.items,
+        config=config,
+        custom_profit_margin=payload.custom_profit_margin,
+        custom_labor_cost=payload.custom_labor_cost,
+    )
+    return result
+
+
+@router.post("/quotations/export/html", status_code=status.HTTP_200_OK)
+def export_quotation_html(payload: ExportRequest):
+    """
+    Xuất trang HTML preview báo giá sẵn sàng để in ấn / xuất PDF.
+    """
+    export_service = QuotationExportService()
+    html_content = export_service.generate_html_report(
+        quotation=payload.quotation,
+        workshop_name=payload.workshop_name or "Xưởng Mộc Nội Thất",
+    )
+    return {"html": html_content}
+
+
+@router.post("/quotations/export/zalo", status_code=status.HTTP_200_OK)
+def export_quotation_zalo(payload: ExportRequest):
+    """
+    Tạo đoạn văn bản tóm tắt tối ưu để chép & gửi Zalo cho khách hàng.
+    """
+    export_service = QuotationExportService()
+    zalo_text = export_service.generate_zalo_summary(
+        quotation=payload.quotation,
+        workshop_name=payload.workshop_name or "Xưởng Mộc Nội Thất",
+    )
+    return {"zalo_text": zalo_text}

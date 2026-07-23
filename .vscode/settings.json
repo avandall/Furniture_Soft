@@ -1,0 +1,59 @@
+{
+  "editor.semanticHighlighting.enabled": true,
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.indexing": true,
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/quick_quote_server",
+    "${workspaceFolder}/drawing_copilot_server",
+    "${workspaceFolder}/office_server"
+  ],
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/quick_quote_server",
+    "${workspaceFolder}/drawing_copilot_server",
+    "${workspaceFolder}/office_server"
+  ],
+  "[python]": {
+    "editor.semanticHighlighting.enabled": true
+  },
+  "editor.semanticTokenColorCustomizations": {
+    "enabled": true,
+    "rules": {
+      "class": "#4EC9B0",
+      "class.builtin": "#4EC9B0",
+      "type": "#4EC9B0",
+      "function": "#DCDCAA",
+      "function.builtin": "#DCDCAA",
+      "method": "#DCDCAA",
+      "parameter": "#9CDCFE",
+      "variable": "#9CDCFE",
+      "property": "#9CDCFE",
+      "namespace": "#4EC9B0",
+      "module": "#4EC9B0"
+    }
+  },
+  "editor.tokenColorCustomizations": {
+    "textMateRules": [
+      {
+        "scope": [
+          "entity.name.namespace",
+          "entity.name.module",
+          "entity.name.type.class.python",
+          "meta.import.python"
+        ],
+        "settings": {
+          "foreground": "#4EC9B0"
+        }
+      },
+      {
+        "scope": [
+          "keyword.control.import.python"
+        ],
+        "settings": {
+          "foreground": "#C586C0",
+          "fontStyle": "italic"
+        }
+      }
+    ]
+  }
+}

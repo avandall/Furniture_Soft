@@ -17,7 +17,7 @@ client = TestClient(app)
 def test_read_root():
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json()["status"] == "online"
+    assert "Quick-Quote AI" in response.text
 
 
 def test_preset_pricing_api():
@@ -33,8 +33,16 @@ def test_preset_pricing_api():
     assert get_res.json()["workshop_id"] == "ws_api_test"
 
 
+def test_preset_pricing_api_invalid_template():
+    response = client.post("/api/v1/workshops/ws_invalid/pricing/preset?template_key=invalid_template")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["config"]["workshop_id"] == "ws_invalid"
+    assert len(data["config"]["categories"]) == 0
+
+
 def test_async_quotation_upload_and_polling():
-    # 1. Upload ảnh giả định
+    # 1. Upload ảnh giả định với xưởng đã có bảng giá
     dummy_file = io.BytesIO(b"fake image bytes data")
     response = client.post(
         "/api/v1/quotations/upload",
@@ -66,3 +74,35 @@ def test_async_quotation_upload_and_polling():
     assert completed_job["status"] == "COMPLETED"
     assert "result" in completed_job
     assert completed_job["result"]["total_amount"] > 0
+
+
+def test_async_quotation_upload_unconfigured_workshop():
+    # Upload ảnh cho xưởng chưa cài đặt bảng giá
+    dummy_file = io.BytesIO(b"fake image bytes data unconfigured")
+    response = client.post(
+        "/api/v1/quotations/upload",
+        data={"workshop_id": "ws_no_pricing_test"},
+        files={"file": ("test_draw.png", dummy_file, "image/png")},
+    )
+
+    assert response.status_code == 202
+    job_id = response.json()["job_id"]
+
+    max_retries = 10
+    completed_job = None
+    for _ in range(max_retries):
+        poll_res = client.get(f"/api/v1/quotations/jobs/{job_id}")
+        assert poll_res.status_code == 200
+        poll_data = poll_res.json()
+        if poll_data["status"] in ("COMPLETED", "FAILED"):
+            completed_job = poll_data
+            break
+        time.sleep(0.1)
+
+    assert completed_job is not None
+    assert completed_job["status"] == "COMPLETED"
+    assert "result" in completed_job
+    # Vì xưởng chưa cài bảng giá -> Tổng tiền = 0 VND và có cảnh báo thiếu giá
+    assert completed_job["result"]["total_amount"] == 0
+    assert completed_job["result"]["has_warnings"] is True
+

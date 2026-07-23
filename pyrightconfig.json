@@ -1,0 +1,10 @@
+{
+  "extraPaths": [
+    "quick_quote_server",
+    "drawing_copilot_server",
+    "office_server"
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true,
+  "reportMissingModuleSource": false
+}
