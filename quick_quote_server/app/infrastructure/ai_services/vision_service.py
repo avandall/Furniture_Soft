@@ -7,7 +7,8 @@ from app.domain.models import QuotedItem, WorkshopPricingConfig
 from app.infrastructure.ai_services.prompt_builder import DynamicPromptBuilder
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
     from PIL import Image
     HAS_GENAI_SDK = True
 except ImportError:
@@ -79,6 +80,7 @@ class GeminiVisionService(BaseVisionService):
     """
     Dịch vụ tích hợp với Gemini 1.5 Flash API bằng Structured Output JSON Schema.
     ĐÂY CHÍNH LÀ NƠI GỌI AI THỰC TẾ ĐỂ BÓC TÁCH THỰC THỂ TỪ ẢNH.
+    Sử dụng SDK mới nhất `google-genai` của Google.
     """
 
     def __init__(self, api_key: str = None):
@@ -98,7 +100,7 @@ class GeminiVisionService(BaseVisionService):
         self, image_data: Union[bytes, str], config: WorkshopPricingConfig
     ) -> List[QuotedItem]:
         """
-        Gửi Ảnh + System Prompt cá nhân hóa cho Gemini 1.5 Flash API
+        Gửi Ảnh + System Prompt cá nhân hóa cho Gemini API
         và nhận về JSON Structured Output khớp 100% Pydantic Schema List[QuotedItem].
         """
         if not self.api_key:
@@ -108,7 +110,7 @@ class GeminiVisionService(BaseVisionService):
 
         if not HAS_GENAI_SDK:
             raise ImportError(
-                "Thư viện 'google-generativeai' chưa được cài đặt. Vui lòng chạy 'pip install google-generativeai pillow'."
+                "Thư viện 'google-genai' chưa được cài đặt. Vui lòng chạy 'pip install google-genai pillow'."
             )
 
         # 1. Dựng System Prompt cá nhân hóa theo danh mục xưởng
@@ -117,17 +119,17 @@ class GeminiVisionService(BaseVisionService):
         # 2. Chuẩn bị hình ảnh
         pil_image = self._prepare_image(image_data)
 
-        # 3. Cấu hình Gemini SDK & Model Gemini 1.5 Flash
-        genai.configure(api_key=self.api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        # 3. Khởi tạo Gemini Client với SDK mới `google-genai`
+        client = genai.Client(api_key=self.api_key)
 
         # 4. Gọi Gemini API với Structured Output JSON Schema
-        response = model.generate_content(
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
             contents=[pil_image, prompt],
-            generation_config=genai.GenerationConfig(
+            config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=List[QuotedItem],
-                temperature=0.1,  # Đặt nhiệt độ thấp để AI bóc tách chính xác không sáng tạo lung tung
+                temperature=0.1,
             ),
         )
 
